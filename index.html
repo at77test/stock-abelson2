@@ -267,17 +267,9 @@ body{
   gap:0;
   animation:drop .22s ease;
 }
-.res-product-header{
-  background:var(--white);
-  border-radius:var(--radius) var(--radius) 0 0;
-  padding:18px 24px 16px;
-  border-bottom:2px solid var(--gray-100);
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:16px;
-  box-shadow:var(--shadow-sm);
-}
+.res-product-header{display:flex;align-items:center;gap:14px;padding:14px 16px;background:#fff8f6;border-bottom:1px solid #f0e0da;}
+.res-product-img{width:90px;height:90px;object-fit:contain;border-radius:6px;background:#fff;flex-shrink:0;border:1px solid #f0ddd8;}
+.res-product-info{display:flex;flex-direction:column;gap:6px;min-width:0;}
 .res-product-name{
   font-size:.95rem;
   font-weight:600;
@@ -585,6 +577,7 @@ body{
 
 <script>
 let DB=null;
+let IMGS=null;
 
 let _modeUni='cod';
 let _acIdxUni=-1;
@@ -635,10 +628,14 @@ function renderUniResults(padded,numVal){
     if(!r){for(const[k,v]of Object.entries(ds)){if(parseInt(k,10)===numVal){r=v;break;}}}
     if(r&&r.n){prodName=r.n;break;}
   }
+  const imgUrl=IMGS&&IMGS[padded]?IMGS[padded]:null;
   let html='<div class="uni-results">';
   html+=`<div class="res-product-header">
-    <div class="res-product-name">${prodName}</div>
-    <div class="res-code-badge">${padded}</div>
+    ${imgUrl?`<img class="res-product-img" src="${imgUrl}" alt="${prodName}" onerror="this.style.display='none'">`:''}
+    <div class="res-product-info">
+      <div class="res-product-name">${prodName}</div>
+      <div class="res-code-badge">${padded}</div>
+    </div>
   </div>`;
   for(const s of sucs){
     const ds=DB[s.id];
@@ -808,18 +805,20 @@ document.addEventListener('click',function(e){
   if(navWrap&&!navWrap.contains(e.target))closeNavMenu();
 });
 
-fetch('stock.json?v='+Date.now())
-  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-  .then(function(data){
-    DB=data;
-    document.getElementById('loading-overlay').style.display='none';
-    const now=new Date();
-    document.getElementById("ts").textContent="Datos al "+now.toLocaleDateString("es-AR")+" "+now.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
-  })
-  .catch(function(e){
-    var ov=document.getElementById('loading-overlay');
-    ov.innerHTML='<div style="font-family:IBM Plex Sans,sans-serif;text-align:center;padding:24px;color:#c0392b;font-size:.9rem;">Error al cargar el stock.<br>Verificá la conexión e intentá de nuevo.<br><br><button onclick="location.reload()" style="background:#E0592A;color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:.85rem;">Reintentar</button></div>';
-  });
+var _v='?v='+Date.now();
+Promise.all([
+  fetch('stock.json'+_v).then(function(r){if(!r.ok)throw new Error('stock HTTP '+r.status);return r.json();}),
+  fetch('imagenes.json'+_v).then(function(r){return r.ok?r.json():{};}).catch(function(){return {};})
+]).then(function(results){
+  DB=results[0];
+  IMGS=results[1];
+  document.getElementById('loading-overlay').style.display='none';
+  const now=new Date();
+  document.getElementById("ts").textContent="Datos al "+now.toLocaleDateString("es-AR")+" "+now.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+}).catch(function(e){
+  var ov=document.getElementById('loading-overlay');
+  ov.innerHTML='<div style="font-family:IBM Plex Sans,sans-serif;text-align:center;padding:24px;color:#c0392b;font-size:.9rem;">Error al cargar el stock.<br>Verificá la conexión e intentá de nuevo.<br><br><button onclick="location.reload()" style="background:#E0592A;color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:.85rem;">Reintentar</button></div>';
+});
 </script>
 </body>
 </html>
