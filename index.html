@@ -486,47 +486,87 @@ body{
   background:var(--white);
   border-radius:var(--radius);
   box-shadow:var(--shadow);
-  overflow-x:auto;
+  overflow:auto;
+  max-height:75vh;
 }
 .outlet-table{
   width:100%;
-  border-collapse:collapse;
+  min-width:720px;
+  border-collapse:separate;
+  border-spacing:0;
   font-family:"IBM Plex Sans",sans-serif;
   font-size:.82rem;
 }
-.outlet-table thead tr{
+.outlet-table thead th{
+  position:sticky;
+  top:0;
+  z-index:10;
   background:var(--black);
-}
-.outlet-table th{
   color:var(--white);
   text-align:left;
-  padding:12px 16px;
+  padding:0;
   font-size:.68rem;
   font-weight:700;
   letter-spacing:.08em;
   text-transform:uppercase;
   white-space:nowrap;
+  border-bottom:2px solid var(--orange);
 }
-.outlet-table td{
-  padding:10px 16px;
+.outlet-th-btn{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  width:100%;
+  background:none;
+  border:none;
+  color:inherit;
+  font:inherit;
+  letter-spacing:inherit;
+  text-transform:inherit;
+  cursor:pointer;
+  padding:12px 16px;
+  transition:background .15s;
+}
+.outlet-th-btn:hover{background:rgba(255,255,255,.1)}
+.outlet-th-btn.num-col{justify-content:flex-end}
+.outlet-sort-icon{
+  font-size:.6rem;
+  opacity:.4;
+  min-width:10px;
+}
+.outlet-sort-icon.active{opacity:1;color:var(--orange)}
+.outlet-table tbody td{
+  padding:11px 16px;
   border-bottom:1px solid var(--gray-100);
-  white-space:nowrap;
+  vertical-align:top;
 }
+.outlet-table tbody tr:nth-child(even){background:var(--gray-50)}
 .outlet-table tbody tr:hover{background:var(--orange-light)}
 .outlet-table tbody tr:last-child td{border-bottom:none}
+.outlet-suc{
+  white-space:nowrap;
+  font-size:.72rem;
+  font-weight:600;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--gray-700);
+}
 .outlet-code{
   font-family:"IBM Plex Mono",monospace;
   font-weight:600;
   color:var(--orange);
+  white-space:nowrap;
 }
 .outlet-desc{
   white-space:normal;
-  min-width:220px;
+  min-width:260px;
+  line-height:1.4;
 }
 .outlet-num{
   font-family:"IBM Plex Mono",monospace;
   font-weight:600;
   text-align:right;
+  white-space:nowrap;
 }
 </style>
 </head>
@@ -879,15 +919,34 @@ function isOutletDesc(desc){
   return OUTLET_PREFIXES.some(function(p){return desc.trim().indexOf(p)===0;});
 }
 
-function renderOutlet(){
-  const container=document.getElementById('results-outlet');
-  if(!DB){container.innerHTML='<div class="empty-state"><p>Cargando datos...</p></div>';return;}
+let _outletRows=[];
+let _outletSortCol='sucursal';
+let _outletSortDir='asc';
+
+const OUTLET_COLS=[
+  {key:'sucursal',label:'Sucursal',num:false},
+  {key:'codigo',label:'Código',num:false},
+  {key:'nombre',label:'Descripción',num:false},
+  {key:'s',label:'Stock Físico',num:true},
+  {key:'d',label:'Disponible',num:true}
+];
+
+function outletSortBy(col){
+  if(_outletSortCol===col){
+    _outletSortDir=_outletSortDir==='asc'?'desc':'asc';
+  }else{
+    _outletSortCol=col;
+    _outletSortDir='asc';
+  }
+  renderOutletTable();
+}
+
+function buildOutletRows(){
   const sucs=[
     {id:'gaona',label:'Gaona y Zagala'},
     {id:'escobar',label:'Escobar'},
     {id:'olivos',label:'Olivos'}
   ];
-  function cv(v){return v<0?'cv-neg':v===0?'cv-zero':v<=5?'cv-low':'cv-ok';}
   let rows=[];
   for(const s of sucs){
     const ds=DB[s.id];
@@ -896,25 +955,54 @@ function renderOutlet(){
       rows.push({sucursal:s.label,codigo:k,nombre:v.n||'Sin descripción',s:v.s,d:v.d});
     }
   }
+  return rows;
+}
+
+function renderOutlet(){
+  const container=document.getElementById('results-outlet');
+  if(!DB){container.innerHTML='<div class="empty-state"><p>Cargando datos...</p></div>';return;}
+  _outletRows=buildOutletRows();
+  renderOutletTable();
+}
+
+function renderOutletTable(){
+  const container=document.getElementById('results-outlet');
+  const rows=_outletRows;
   if(!rows.length){
     container.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏷️</div><p>No hay productos de outlet cargados</p></div>';
+    document.getElementById('ts-outlet').textContent='';
     return;
   }
-  rows.sort(function(a,b){return a.sucursal.localeCompare(b.sucursal)||a.codigo.localeCompare(b.codigo);});
-  let html='<table class="outlet-table"><thead><tr>'
-    +'<th>Sucursal</th><th>Código</th><th>Descripción</th><th>Stock Físico</th><th>Disponible</th>'
-    +'</tr></thead><tbody>';
-  for(const r of rows){
-    html+='<tr>'
-      +'<td>'+r.sucursal+'</td>'
+  function cv(v){return v<0?'cv-neg':v===0?'cv-zero':v<=5?'cv-low':'cv-ok';}
+  const dir=_outletSortDir==='asc'?1:-1;
+  const sorted=rows.slice().sort(function(a,b){
+    const av=a[_outletSortCol], bv=b[_outletSortCol];
+    if(typeof av==='number'&&typeof bv==='number')return(av-bv)*dir;
+    return String(av).localeCompare(String(bv),'es',{numeric:true})*dir;
+  });
+  let thead='<thead><tr>';
+  for(const col of OUTLET_COLS){
+    const isActive=_outletSortCol===col.key;
+    const icon=isActive?(_outletSortDir==='asc'?'▲':'▼'):'▲';
+    thead+='<th><button class="outlet-th-btn'+(col.num?' num-col':'')+'" onclick="outletSortBy(\''+col.key+'\')">'
+      +(col.num?'<span class="outlet-sort-icon'+(isActive?' active':'')+'">'+icon+'</span>':'')
+      +'<span>'+col.label+'</span>'
+      +(!col.num?'<span class="outlet-sort-icon'+(isActive?' active':'')+'">'+icon+'</span>':'')
+      +'</button></th>';
+  }
+  thead+='</tr></thead>';
+  let tbody='<tbody>';
+  for(const r of sorted){
+    tbody+='<tr>'
+      +'<td class="outlet-suc">'+r.sucursal+'</td>'
       +'<td class="outlet-code">'+r.codigo+'</td>'
       +'<td class="outlet-desc">'+r.nombre+'</td>'
       +'<td class="outlet-num '+cv(r.s)+'">'+r.s+'</td>'
       +'<td class="outlet-num '+cv(r.d)+'">'+r.d+'</td>'
       +'</tr>';
   }
-  html+='</tbody></table>';
-  container.innerHTML=html;
+  tbody+='</tbody>';
+  container.innerHTML='<table class="outlet-table">'+thead+tbody+'</table>';
   const now=new Date();
   document.getElementById('ts-outlet').textContent=rows.length+' artículos · Datos al '+now.toLocaleDateString("es-AR")+" "+now.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
 }
