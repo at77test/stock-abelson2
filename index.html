@@ -480,6 +480,54 @@ body{
 .view-section.active{display:flex}
 .map-card-body{padding:0}
 .map-card-body iframe{display:block;width:100%;border:none}
+
+/* ── OUTLET TABLE ── */
+.outlet-table-wrap{
+  background:var(--white);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow-x:auto;
+}
+.outlet-table{
+  width:100%;
+  border-collapse:collapse;
+  font-family:"IBM Plex Sans",sans-serif;
+  font-size:.82rem;
+}
+.outlet-table thead tr{
+  background:var(--black);
+}
+.outlet-table th{
+  color:var(--white);
+  text-align:left;
+  padding:12px 16px;
+  font-size:.68rem;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.outlet-table td{
+  padding:10px 16px;
+  border-bottom:1px solid var(--gray-100);
+  white-space:nowrap;
+}
+.outlet-table tbody tr:hover{background:var(--orange-light)}
+.outlet-table tbody tr:last-child td{border-bottom:none}
+.outlet-code{
+  font-family:"IBM Plex Mono",monospace;
+  font-weight:600;
+  color:var(--orange);
+}
+.outlet-desc{
+  white-space:normal;
+  min-width:220px;
+}
+.outlet-num{
+  font-family:"IBM Plex Mono",monospace;
+  font-weight:600;
+  text-align:right;
+}
 </style>
 </head>
 <body>
@@ -559,19 +607,9 @@ body{
         <span class="search-card-header-icon">🏷️</span>
         <span class="search-card-title">Productos Outlet</span>
       </div>
-      <div class="search-card-body">
-        <div class="search-row">
-          <div class="search-input-wrap" style="flex:1;position:relative">
-            <input type="text" class="desc-input" id="outlet-filter" placeholder="Filtrar por código o descripción..."
-              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-              oninput="renderOutlet()">
-          </div>
-        </div>
-        <div class="search-hint">Códigos que comienzan con * @ o # · <span id="outlet-count"></span></div>
-      </div>
     </div>
 
-    <div id="results-outlet">
+    <div id="results-outlet" class="outlet-table-wrap">
       <div class="empty-state">
         <div class="empty-state-icon">🏷️</div>
         <p>Cargando productos de outlet...</p>
@@ -842,55 +880,42 @@ function isOutletCode(code){
 
 function renderOutlet(){
   const container=document.getElementById('results-outlet');
-  const countEl=document.getElementById('outlet-count');
   if(!DB){container.innerHTML='<div class="empty-state"><p>Cargando datos...</p></div>';return;}
   const sucs=[
     {id:'gaona',label:'Gaona y Zagala'},
     {id:'escobar',label:'Escobar'},
     {id:'olivos',label:'Olivos'}
   ];
-  const filter=(document.getElementById('outlet-filter').value||'').trim().toUpperCase();
   function cv(v){return v<0?'cv-neg':v===0?'cv-zero':v<=5?'cv-low':'cv-ok';}
-  function tag(v){
-    if(v<0)return'<span class="res-tag tag-neg">Negativo</span>';
-    if(v===0)return'<span class="res-tag tag-zero">Sin stock</span>';
-    if(v<=5)return'<span class="res-tag tag-low">Stock bajo</span>';
-    return'<span class="res-tag tag-ok">Disponible</span>';
-  }
   let rows=[];
   for(const s of sucs){
     const ds=DB[s.id];
     for(const[k,v]of Object.entries(ds)){
       if(!isOutletCode(k))continue;
-      const name=(v.n||'').toUpperCase();
-      if(filter&&!(k.toUpperCase().includes(filter)||name.includes(filter)))continue;
       rows.push({sucursal:s.label,codigo:k,nombre:v.n||'Sin descripción',s:v.s,d:v.d});
     }
   }
-  countEl.textContent=rows.length+' resultado'+(rows.length===1?'':'s');
   if(!rows.length){
-    container.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏷️</div><p>No se encontraron productos de outlet'+(filter?' para "'+filter+'"':'')+'</p></div>';
+    container.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏷️</div><p>No hay productos de outlet cargados</p></div>';
     return;
   }
-  rows.sort(function(a,b){return a.codigo.localeCompare(b.codigo)||a.sucursal.localeCompare(b.sucursal);});
-  let html='<div class="uni-results">';
+  rows.sort(function(a,b){return a.sucursal.localeCompare(b.sucursal)||a.codigo.localeCompare(b.codigo);});
+  let html='<table class="outlet-table"><thead><tr>'
+    +'<th>Sucursal</th><th>Código</th><th>Descripción</th><th>Stock Físico</th><th>Disponible</th>'
+    +'</tr></thead><tbody>';
   for(const r of rows){
-    html+=`<div class="uni-suc-block">
-      <div class="uni-suc-header">
-        <span class="uni-suc-name">${r.sucursal} · <span class="ac-code" style="color:var(--orange)">${r.codigo}</span></span>
-        ${tag(r.d)}
-      </div>
-      <div style="padding:8px 24px 4px;font-size:.8rem;color:var(--gray-700)">${r.nombre}</div>
-      <div class="uni-stock-row">
-        <div class="uni-cell"><div class="cell-label">Stock Físico</div><div class="cell-value ${cv(r.s)}">${r.s}</div></div>
-        <div class="uni-cell"><div class="cell-label">Disponible</div><div class="cell-value ${cv(r.d)}">${r.d}</div></div>
-      </div>
-    </div>`;
+    html+='<tr>'
+      +'<td>'+r.sucursal+'</td>'
+      +'<td class="outlet-code">'+r.codigo+'</td>'
+      +'<td class="outlet-desc">'+r.nombre+'</td>'
+      +'<td class="outlet-num '+cv(r.s)+'">'+r.s+'</td>'
+      +'<td class="outlet-num '+cv(r.d)+'">'+r.d+'</td>'
+      +'</tr>';
   }
-  html+='</div>';
+  html+='</tbody></table>';
   container.innerHTML=html;
   const now=new Date();
-  document.getElementById('ts-outlet').textContent="Datos al "+now.toLocaleDateString("es-AR")+" "+now.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+  document.getElementById('ts-outlet').textContent=rows.length+' artículos · Datos al '+now.toLocaleDateString("es-AR")+" "+now.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
 }
 
 document.addEventListener('click',function(e){
