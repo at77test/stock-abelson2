@@ -498,6 +498,7 @@ body{
         <button class="nav-menu-btn" onclick="toggleNavMenu()" aria-label="Abrir menú" type="button">☰</button>
         <div class="nav-menu-dropdown" id="nav-menu-dropdown">
           <button class="nav-menu-item active" id="nav-item-stock" onclick="selectView('stock')" type="button">📦 Consultar Stock</button>
+          <button class="nav-menu-item" id="nav-item-outlet" onclick="selectView('outlet')" type="button">🏷️ Outlet</button>
           <button class="nav-menu-item" id="nav-item-map" onclick="selectView('map')" type="button">🗺️ Mapa de Envíos</button>
         </div>
       </div>
@@ -550,6 +551,36 @@ body{
     <span>Gaona 34099 · Escobar 36284 · Olivos 36472</span>
   </div>
 
+  </div>
+
+  <div id="view-outlet" class="view-section">
+    <div class="search-card">
+      <div class="search-card-header">
+        <span class="search-card-header-icon">🏷️</span>
+        <span class="search-card-title">Productos Outlet</span>
+      </div>
+      <div class="search-card-body">
+        <div class="search-row">
+          <div class="search-input-wrap" style="flex:1;position:relative">
+            <input type="text" class="desc-input" id="outlet-filter" placeholder="Filtrar por código o descripción..."
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              oninput="renderOutlet()">
+          </div>
+        </div>
+        <div class="search-hint">Códigos que comienzan con * @ o # · <span id="outlet-count"></span></div>
+      </div>
+    </div>
+
+    <div id="results-outlet">
+      <div class="empty-state">
+        <div class="empty-state-icon">🏷️</div>
+        <p>Cargando productos de outlet...</p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span id="ts-outlet"></span>
+    </div>
   </div>
 
   <div id="view-map" class="view-section">
@@ -780,24 +811,86 @@ function closeNavMenu(){
 
 function selectView(view){
   closeNavMenu();
-  const stockSection=document.getElementById('view-stock');
-  const mapSection=document.getElementById('view-map');
-  const itemStock=document.getElementById('nav-item-stock');
-  const itemMap=document.getElementById('nav-item-map');
+  const sections={
+    stock:document.getElementById('view-stock'),
+    outlet:document.getElementById('view-outlet'),
+    map:document.getElementById('view-map')
+  };
+  const items={
+    stock:document.getElementById('nav-item-stock'),
+    outlet:document.getElementById('nav-item-outlet'),
+    map:document.getElementById('nav-item-map')
+  };
+  const badges={
+    stock:'Consulta de Stock',
+    outlet:'Outlet',
+    map:'Mapa de Envíos'
+  };
   const badge=document.getElementById('header-badge');
-  if(view==='map'){
-    stockSection.classList.remove('active');
-    mapSection.classList.add('active');
-    itemStock.classList.remove('active');
-    itemMap.classList.add('active');
-    badge.textContent='Mapa de Envíos';
-  }else{
-    mapSection.classList.remove('active');
-    stockSection.classList.add('active');
-    itemMap.classList.remove('active');
-    itemStock.classList.add('active');
-    badge.textContent='Consulta de Stock';
+  for(const key in sections){
+    sections[key].classList.toggle('active', key===view);
+    items[key].classList.toggle('active', key===view);
   }
+  badge.textContent=badges[view]||'Consulta de Stock';
+  if(view==='outlet'&&DB)renderOutlet();
+}
+
+const OUTLET_PREFIXES=['*','@','#'];
+function isOutletCode(code){
+  return OUTLET_PREFIXES.some(function(p){return code.indexOf(p)===0;});
+}
+
+function renderOutlet(){
+  const container=document.getElementById('results-outlet');
+  const countEl=document.getElementById('outlet-count');
+  if(!DB){container.innerHTML='<div class="empty-state"><p>Cargando datos...</p></div>';return;}
+  const sucs=[
+    {id:'gaona',label:'Gaona y Zagala'},
+    {id:'escobar',label:'Escobar'},
+    {id:'olivos',label:'Olivos'}
+  ];
+  const filter=(document.getElementById('outlet-filter').value||'').trim().toUpperCase();
+  function cv(v){return v<0?'cv-neg':v===0?'cv-zero':v<=5?'cv-low':'cv-ok';}
+  function tag(v){
+    if(v<0)return'<span class="res-tag tag-neg">Negativo</span>';
+    if(v===0)return'<span class="res-tag tag-zero">Sin stock</span>';
+    if(v<=5)return'<span class="res-tag tag-low">Stock bajo</span>';
+    return'<span class="res-tag tag-ok">Disponible</span>';
+  }
+  let rows=[];
+  for(const s of sucs){
+    const ds=DB[s.id];
+    for(const[k,v]of Object.entries(ds)){
+      if(!isOutletCode(k))continue;
+      const name=(v.n||'').toUpperCase();
+      if(filter&&!(k.toUpperCase().includes(filter)||name.includes(filter)))continue;
+      rows.push({sucursal:s.label,codigo:k,nombre:v.n||'Sin descripción',s:v.s,d:v.d});
+    }
+  }
+  countEl.textContent=rows.length+' resultado'+(rows.length===1?'':'s');
+  if(!rows.length){
+    container.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏷️</div><p>No se encontraron productos de outlet'+(filter?' para "'+filter+'"':'')+'</p></div>';
+    return;
+  }
+  rows.sort(function(a,b){return a.codigo.localeCompare(b.codigo)||a.sucursal.localeCompare(b.sucursal);});
+  let html='<div class="uni-results">';
+  for(const r of rows){
+    html+=`<div class="uni-suc-block">
+      <div class="uni-suc-header">
+        <span class="uni-suc-name">${r.sucursal} · <span class="ac-code" style="color:var(--orange)">${r.codigo}</span></span>
+        ${tag(r.d)}
+      </div>
+      <div style="padding:8px 24px 4px;font-size:.8rem;color:var(--gray-700)">${r.nombre}</div>
+      <div class="uni-stock-row">
+        <div class="uni-cell"><div class="cell-label">Stock Físico</div><div class="cell-value ${cv(r.s)}">${r.s}</div></div>
+        <div class="uni-cell"><div class="cell-label">Disponible</div><div class="cell-value ${cv(r.d)}">${r.d}</div></div>
+      </div>
+    </div>`;
+  }
+  html+='</div>';
+  container.innerHTML=html;
+  const now=new Date();
+  document.getElementById('ts-outlet').textContent="Datos al "+now.toLocaleDateString("es-AR")+" "+now.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
 }
 
 document.addEventListener('click',function(e){
@@ -815,6 +908,7 @@ Promise.all([
   document.getElementById('loading-overlay').style.display='none';
   const now=new Date();
   document.getElementById("ts").textContent="Datos al "+now.toLocaleDateString("es-AR")+" "+now.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+  if(document.getElementById('view-outlet').classList.contains('active'))renderOutlet();
 }).catch(function(e){
   var ov=document.getElementById('loading-overlay');
   ov.innerHTML='<div style="font-family:IBM Plex Sans,sans-serif;text-align:center;padding:24px;color:#c0392b;font-size:.9rem;">Error al cargar el stock.<br>Verificá la conexión e intentá de nuevo.<br><br><button onclick="location.reload()" style="background:#E0592A;color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:.85rem;">Reintentar</button></div>';
