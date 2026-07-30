@@ -874,8 +874,9 @@ function selectView(view){
 }
 
 const OUTLET_PREFIXES=['*','@','#'];
-function isOutletCode(code){
-  return OUTLET_PREFIXES.some(function(p){return code.indexOf(p)===0;});
+function isOutletDesc(desc){
+  if(!desc)return false;
+  return OUTLET_PREFIXES.some(function(p){return desc.trim().indexOf(p)===0;});
 }
 
 function renderOutlet(){
@@ -891,7 +892,7 @@ function renderOutlet(){
   for(const s of sucs){
     const ds=DB[s.id];
     for(const[k,v]of Object.entries(ds)){
-      if(!isOutletCode(k))continue;
+      if(!isOutletDesc(v.n))continue;
       rows.push({sucursal:s.label,codigo:k,nombre:v.n||'Sin descripción',s:v.s,d:v.d});
     }
   }
