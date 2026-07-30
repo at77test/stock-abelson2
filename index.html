@@ -486,17 +486,22 @@ body{
   background:var(--white);
   border-radius:var(--radius);
   box-shadow:var(--shadow);
-  overflow:auto;
+  overflow-x:hidden;
+  overflow-y:auto;
   max-height:75vh;
 }
 .outlet-table{
   width:100%;
-  min-width:720px;
+  table-layout:fixed;
   border-collapse:separate;
   border-spacing:0;
   font-family:"IBM Plex Sans",sans-serif;
-  font-size:.82rem;
+  font-size:.72rem;
 }
+.outlet-table col.col-suc{width:20%}
+.outlet-table col.col-cod{width:16%}
+.outlet-table col.col-desc{width:auto}
+.outlet-table col.col-num{width:15%}
 .outlet-table thead th{
   position:sticky;
   top:0;
@@ -505,17 +510,17 @@ body{
   color:var(--white);
   text-align:left;
   padding:0;
-  font-size:.68rem;
+  font-size:.6rem;
   font-weight:700;
-  letter-spacing:.08em;
+  letter-spacing:.04em;
   text-transform:uppercase;
-  white-space:nowrap;
   border-bottom:2px solid var(--orange);
 }
 .outlet-th-btn{
   display:flex;
   align-items:center;
-  gap:6px;
+  justify-content:flex-start;
+  gap:4px;
   width:100%;
   background:none;
   border:none;
@@ -524,30 +529,34 @@ body{
   letter-spacing:inherit;
   text-transform:inherit;
   cursor:pointer;
-  padding:12px 16px;
+  padding:8px 6px;
+  white-space:normal;
+  line-height:1.2;
+  text-align:left;
   transition:background .15s;
 }
 .outlet-th-btn:hover{background:rgba(255,255,255,.1)}
-.outlet-th-btn.num-col{justify-content:flex-end}
+.outlet-th-btn.num-col{justify-content:flex-end;text-align:right}
 .outlet-sort-icon{
-  font-size:.6rem;
+  font-size:.55rem;
   opacity:.4;
-  min-width:10px;
+  flex-shrink:0;
 }
 .outlet-sort-icon.active{opacity:1;color:var(--orange)}
 .outlet-table tbody td{
-  padding:11px 16px;
+  padding:8px 6px;
   border-bottom:1px solid var(--gray-100);
   vertical-align:top;
+  overflow-wrap:break-word;
+  word-break:break-word;
 }
 .outlet-table tbody tr:nth-child(even){background:var(--gray-50)}
 .outlet-table tbody tr:hover{background:var(--orange-light)}
 .outlet-table tbody tr:last-child td{border-bottom:none}
 .outlet-suc{
-  white-space:nowrap;
-  font-size:.72rem;
+  font-size:.66rem;
   font-weight:600;
-  letter-spacing:.04em;
+  letter-spacing:.01em;
   text-transform:uppercase;
   color:var(--gray-700);
 }
@@ -555,18 +564,14 @@ body{
   font-family:"IBM Plex Mono",monospace;
   font-weight:600;
   color:var(--orange);
-  white-space:nowrap;
 }
 .outlet-desc{
-  white-space:normal;
-  min-width:260px;
-  line-height:1.4;
+  line-height:1.35;
 }
 .outlet-num{
   font-family:"IBM Plex Mono",monospace;
   font-weight:600;
   text-align:right;
-  white-space:nowrap;
 }
 </style>
 </head>
@@ -927,7 +932,7 @@ const OUTLET_COLS=[
   {key:'sucursal',label:'Sucursal',num:false},
   {key:'codigo',label:'Código',num:false},
   {key:'nombre',label:'Descripción',num:false},
-  {key:'s',label:'Stock Físico',num:true},
+  {key:'s',label:'Físico',num:true},
   {key:'d',label:'Disponible',num:true}
 ];
 
@@ -1002,7 +1007,9 @@ function renderOutletTable(){
       +'</tr>';
   }
   tbody+='</tbody>';
-  container.innerHTML='<table class="outlet-table">'+thead+tbody+'</table>';
+  container.innerHTML='<table class="outlet-table"><colgroup>'
+    +'<col class="col-suc"><col class="col-cod"><col class="col-desc"><col class="col-num"><col class="col-num">'
+    +'</colgroup>'+thead+tbody+'</table>';
   const now=new Date();
   document.getElementById('ts-outlet').textContent=rows.length+' artículos · Datos al '+now.toLocaleDateString("es-AR")+" "+now.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
 }
